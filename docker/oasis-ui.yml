@@ -1,0 +1,11 @@
+version: '3.4'
+services:
+  ui:
+    restart: always
+    image: coreoasis/oasisui_app:${VERS_UI:-latest}
+    environment:
+     - API_IP=server
+     - API_PORT=8000
+     - API_VERSION=v1
+     - API_SHARE_FILEPATH=./downloads
+     - OASIS_ENVIRONMENT=oasis_localhost
