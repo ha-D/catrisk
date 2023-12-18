@@ -29,11 +29,16 @@ def get_model_services(config):
 
         print(f"Found model {model}")
 
+        if config.get("worker_requires_root", False):
+            root_hack ="\nUSER root\nRUN ln -s /home/worker/.local /root/.local"
+        else:
+            root_hack = ''
+
         services[f"worker-{model.lower()}"] = {
             "restart": "always",
             "build": {
                 "context": ".",
-                "dockerfile_inline":f'''FROM {config['worker_img']}:{config['worker_version']}\nRUN pip3 install msoffcrypto-tool openpyxl'''
+                "dockerfile_inline":f'''FROM {config['worker_img']}:{config['worker_version']}{root_hack}\nRUN pip3 install msoffcrypto-tool openpyxl'''
             },
             "links": [
                 "celery-db",

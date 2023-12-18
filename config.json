@@ -10,6 +10,7 @@
     "storage_account_name": "",
     "storage_account_key": "",
     "storage_container_name": "",
+    "worker_requires_root": false,
     "oasis_port": 80,
     "admin_port": 8000
 }
