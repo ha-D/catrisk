@@ -1,0 +1,7 @@
+:80 {
+    reverse_proxy ui:3838
+}
+
+:8000 {
+    reverse_proxy server:8000
+}

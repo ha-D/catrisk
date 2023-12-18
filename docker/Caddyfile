@@ -1,7 +1,0 @@
-oasis.hadi.sh:443 {
-    reverse_proxy ui:3838
-}
-
-oasis-minio.hadi.sh:443 {
-    reverse_proxy minio:9000
-}

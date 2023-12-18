@@ -6,8 +6,9 @@ services:
     ports:
       - 80:80
       - 443:443
+      - 8000:8000
     volumes:
-      - ./docker/Caddyfile:/etc/caddy/Caddyfile
+      - ./Caddyfile:/etc/caddy/Caddyfile
 
 volumes:
   caddy_data:

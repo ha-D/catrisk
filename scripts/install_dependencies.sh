@@ -23,11 +23,9 @@ curl -L "https://github.com/docker/compose/releases/download/v2.23.3/docker-comp
 sudo chmod +x docker-compose
 sudo mv docker-compose /usr/local/bin
 
-
 # Install az
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
-
 # Install InquirerPy
 sudo apt install -y python3-pip
-pip3 install InquirerPy azure-storage-blob tqdm
+pip3 install InquirerPy azure-storage-blob tqdm python-dotenv
