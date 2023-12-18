@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import json
-from msilib.schema import File
 import os
 from os import path
 
