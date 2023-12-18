@@ -9,5 +9,7 @@
     "docker_dir": "docker",
     "storage_account_name": "",
     "storage_account_key": "",
-    "storage_container_name": ""
+    "storage_container_name": "",
+    "oasis_port": 80,
+    "admin_port": 8000,
 }

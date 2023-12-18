@@ -4,9 +4,9 @@ services:
     image: caddy:latest
     restart: unless-stopped
     ports:
-      - 80:80
+      - ${oasis_port}:80
+      - ${admin_port}:8000
       - 443:443
-      - 8000:8000
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
 

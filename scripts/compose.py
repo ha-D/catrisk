@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+from msilib.schema import File
 import os
 from os import path
 
@@ -21,10 +22,13 @@ def get_model_services(config):
             print(f"Model {model} skipped")
             continue
 
-        print(f"Found model {model}")
-
         with open(path.join(model_dir, model, "meta_data.json")) as f:
-            metadata = json.loads(f.read())
+            try:
+                metadata = json.loads(f.read())
+            except FileNotFoundError:
+                continue
+
+        print(f"Found model {model}")
 
         services[f"worker-{model.lower()}"] = {
             "restart": "always",
