@@ -81,10 +81,9 @@ def merge(a, b, path=None):
     return a
 
 
-def replace_vars(config, config):
+def replace_vars(template, config):
     from string import Template
-    config = Template(config).safe_substitute(config)
-    return config
+    return Template(template).safe_substitute(config)
 
 
 def compose(config):
