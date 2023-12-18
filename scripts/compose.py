@@ -21,11 +21,11 @@ def get_model_services(config):
             print(f"Model {model} skipped")
             continue
 
-        with open(path.join(model_dir, model, "meta_data.json")) as f:
-            try:
-                metadata = json.loads(f.read())
-            except FileNotFoundError:
-                continue
+        try:
+            with open(path.join(model_dir, model, "meta_data.json")) as f:
+                    metadata = json.loads(f.read())
+        except FileNotFoundError:
+            continue
 
         print(f"Found model {model}")
 
