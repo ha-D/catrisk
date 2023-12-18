@@ -8,18 +8,18 @@ import subprocess
 import click
 from InquirerPy import prompt
 
-settings = {}
+config = {}
 
 
 @click.group()
 def cli():
-    global settings
+    global config
 
-    with open("settings.json", "r") as f:
-        settings = json.load(f)
+    with open("config.json", "r") as f:
+        config = json.load(f)
 
-    if not os.path.exists(settings['model_dir']):
-        os.makedirs(settings['model_dir'])
+    if not os.path.exists(config['model_dir']):
+        os.makedirs(config['model_dir'])
 
     if not os.path.exists("data"):
         os.makedirs("data")
@@ -51,7 +51,7 @@ def install():
     else:
         click.echo("Recreating compose file")
 
-    compose(settings)
+    compose(config)
 
     click.echo("Starting docker containers...")
     subprocess.run(["docker-compose", "up", "--build", "--remove-orphans", "--force-recreate", "-d"])
@@ -90,14 +90,34 @@ def compose():
     from scripts.compose import compose
 
     click.echo("Creating compose file")
-    compose(settings)
+    compose(config)
 
 
 @cli.command()
 def download():
     from scripts.download import download_models
 
-    download_models(settings)
+    download_models(config)
+
+@cli.command()
+@click.argument('args', nargs=-1)
+def config(args):
+    if len(args) > 2:
+        click.echo("Too many arguments")
+        return
+    
+    if len(args) == 0:
+        click.echo(json.dumps(config, indent=4))
+        return
+    elif len(args) == 1:
+        click.echo(config[args[0]])
+        return
+    elif len(args) == 2:
+        config[args[0]] = args[1]
+        with open("config.json", "w") as f:
+            json.dump(config, f, indent=4)
+        click.echo(f"Updated config '{args[0]}' to '{args[1]}'")
+        return
 
 
 if __name__ == "__main__":

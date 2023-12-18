@@ -28,9 +28,9 @@ def download_blobs(container_client, directory, download_path):
         else:
             download_blobs(container_client, blob.name, download_path)
 
-def download_models(settings):
-    blob_service_client = BlobServiceClient(account_url=f"https://{settings['storage_account_name']}.blob.core.windows.net", credential=settings['storage_account_key'])
-    container_client = blob_service_client.get_container_client(settings['storage_container_name'])
+def download_models(config):
+    blob_service_client = BlobServiceClient(account_url=f"https://{config['storage_account_name']}.blob.core.windows.net", credential=config['storage_account_key'])
+    container_client = blob_service_client.get_container_client(config['storage_container_name'])
 
     directories = list_directories(container_client)
     selected_dirs = inquirer.checkbox(
@@ -40,5 +40,5 @@ def download_models(settings):
 
     for dir in selected_dirs:
         print(f"Downloading {dir}...")
-        download_blobs(container_client, dir, settings['local_download_path'])
-        print(f"Downloaded {dir} to {settings['model_dir']}")
+        download_blobs(container_client, dir, config['local_download_path'])
+        print(f"Downloaded {dir} to {config['model_dir']}")

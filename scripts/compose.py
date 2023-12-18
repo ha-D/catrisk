@@ -7,11 +7,11 @@ from os import path
 import yaml
 
 
-def get_model_services(settings):
+def get_model_services(config):
     skip = []
     services = {}
 
-    model_dir = settings["model_dir"]
+    model_dir = config["model_dir"]
 
     for model in os.listdir(model_dir):
         if not os.path.isdir(os.path.join(model_dir, model)):
@@ -30,7 +30,7 @@ def get_model_services(settings):
             "restart": "always",
             "build": {
                 "context": ".",
-                "dockerfile_inline":f'''FROM {settings['worker_img']}:{settings['worker_version']}\nRUN pip3 install msoffcrypto-tool openpyxl'''
+                "dockerfile_inline":f'''FROM {config['worker_img']}:{config['worker_version']}\nRUN pip3 install msoffcrypto-tool openpyxl'''
             },
             "links": [
                 "celery-db",
@@ -81,26 +81,26 @@ def merge(a, b, path=None):
     return a
 
 
-def replace_vars(config, settings):
+def replace_vars(config, config):
     from string import Template
-    config = Template(config).safe_substitute(settings)
+    config = Template(config).safe_substitute(config)
     return config
 
 
-def compose(settings):
-    docker_dir = settings["docker_dir"]
+def compose(config):
+    docker_dir = config["docker_dir"]
 
-    config = {}
-    services = get_model_services(settings)
+    merged_compose = {}
+    services = get_model_services(config)
 
     for filename in os.listdir(docker_dir):
         if not filename.endswith(".yml"):
             continue
         with open(path.join(docker_dir, filename)) as f:
-            config_yaml = replace_vars(f.read(), settings)
-            config = merge(config, yaml.safe_load(config_yaml))
+            config_yaml = replace_vars(f.read(), config)
+            merged_compose = merge(merged_compose, yaml.safe_load(config_yaml))
 
-    config = merge(config, {"services": services})
+    merged_compose = merge(merged_compose, {"services": services})
 
     def str_presenter(dumper, data):
         """configures yaml for dumping multiline strings
@@ -115,4 +115,4 @@ def compose(settings):
 
     print("\nWriting config")
     with open("docker-compose.yml", "w") as f:
-        f.write(yaml.dump(config, indent=2, default_flow_style=False))
+        f.write(yaml.dump(merged_compose, indent=2, default_flow_style=False))
