@@ -1,38 +1,33 @@
 #!/usr/bin/env python3
 
+import json
 import os
-import subprocess
-import click
 import shutil
-from dotenv import load_dotenv
-from InquirerPy import prompt 
+import subprocess
 
-load_dotenv()
+import click
+from InquirerPy import prompt
 
-default_model_dir = os.getenv("MODEL_DIR", "models")
-default_docker_dir = os.getenv("DOCKER_DIR", "docker")
+settings = {}
+
 
 @click.group()
-@click.option('--docker-dir', default=default_docker_dir, help='Directory containing docker-compose files')
-@click.option('--model-dir', default=default_model_dir, help='Directory containing models')
-@click.pass_context
-def cli(ctx, docker_dir, model_dir):
-    ctx.ensure_object(dict)
-    ctx.obj["docker_dir"] = docker_dir
-    ctx.obj["model_dir"] = model_dir
+def cli():
+    global settings
 
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
+    with open("settings.json", "r") as f:
+        settings = json.load(f)
+
+    if not os.path.exists(settings['model_dir']):
+        os.makedirs(settings['model_dir'])
 
     if not os.path.exists("data"):
         os.makedirs("data")
 
-@cli.command()
-@click.pass_context
-def install(ctx):
-    from scripts.compose import compose
 
-    docker_dir, model_dir = ctx.obj["docker_dir"], ctx.obj["model_dir"]
+@cli.command()
+def install():
+    from scripts.compose import compose
 
     if not os.path.exists("docker-compose.yml"):
         questions = [
@@ -56,11 +51,11 @@ def install(ctx):
     else:
         click.echo("Recreating compose file")
 
-    compose(docker_dir=docker_dir, model_dir=model_dir)
+    compose(settings)
 
     click.echo("Starting docker containers...")
-    subprocess.run(["docker-compose", "restart"])
-    subprocess.run(["docker-compose", "up", "--remove-orphans", "-d"])
+    subprocess.run(["docker-compose", "up", "--build", "--remove-orphans", "--force-recreate", "-d"])
+
 
 @cli.command()
 def uninstall():
@@ -89,32 +84,21 @@ def uninstall():
         click.echo("Removing data directory")
         shutil.rmtree("data")
 
+
 @cli.command()
-@click.pass_context
-def compose(ctx):
+def compose():
     from scripts.compose import compose
 
-    docker_dir, model_dir = ctx.obj["docker_dir"], ctx.obj["model_dir"]
-
     click.echo("Creating compose file")
-    compose(docker_dir=docker_dir, model_dir=model_dir)
+    compose(settings)
+
 
 @cli.command()
-@click.option('--storage-account-name', default=os.getenv("STORAGE_ACCOUNT_NAME"), help='Azure storage account name')
-@click.option('--storage-account-key', default=os.getenv("STORAGE_ACCOUNT_KEY"), help='Azure storage account key')
-@click.option('--storage-container-name', default=os.getenv("STORAGE_CONTAINER_NAME"), help='Azure storage container name')
-@click.pass_context
-def download(ctx, storage_account_name, storage_account_key, storage_container_name):
+def download():
     from scripts.download import download_models
 
-    docker_dir, model_dir = ctx.obj["docker_dir"], ctx.obj["model_dir"]
+    download_models(settings)
 
-    download_models(
-        storage_account_name=storage_account_name,
-        storage_account_key=storage_account_key,
-        storage_container_name=storage_container_name,
-        local_download_path=model_dir
-    )
 
 if __name__ == "__main__":
     cli()

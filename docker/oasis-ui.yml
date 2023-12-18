@@ -2,7 +2,7 @@ version: '3.4'
 services:
   ui:
     restart: always
-    image: coreoasis/oasisui_app:${VERS_UI:-latest}
+    image: coreoasis/oasisui_app:${ui_version}
     environment:
      - API_IP=server
      - API_PORT=8000

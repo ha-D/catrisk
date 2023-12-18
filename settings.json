@@ -1,0 +1,13 @@
+{
+    "mdk_version": "1.28.4",
+    "api_version": "1.28.4",
+    "worker_version": "1.28.4",
+    "ui_version": "1.11.7",
+    "server_img": "coreoasis/api_server",
+    "worker_img": "coreoasis/model_worker",
+    "model_dir": "models",
+    "docker_dir": "docker",
+    "storage_account_name": "",
+    "storage_account_key": "",
+    "storage_container_name": ""
+}

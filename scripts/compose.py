@@ -7,9 +7,11 @@ from os import path
 import yaml
 
 
-def get_model_services(model_dir):
+def get_model_services(settings):
     skip = []
     services = {}
+
+    model_dir = settings["model_dir"]
 
     for model in os.listdir(model_dir):
         if not os.path.isdir(os.path.join(model_dir, model)):
@@ -28,7 +30,7 @@ def get_model_services(model_dir):
             "restart": "always",
             "build": {
                 "context": ".",
-                "dockerfile": "scripts/catrisk.Dockerfile"
+                "dockerfile_inline":f'''FROM {settings['worker_img']}:{settings['worker_version']}\nRUN pip3 install msoffcrypto-tool openpyxl'''
             },
             "links": [
                 "celery-db",
@@ -79,18 +81,38 @@ def merge(a, b, path=None):
     return a
 
 
-def compose(docker_dir, model_dir):
+def replace_vars(config, settings):
+    from string import Template
+    config = Template(config).safe_substitute(settings)
+    return config
+
+
+def compose(settings):
+    docker_dir = settings["docker_dir"]
+
     config = {}
-    services = get_model_services(model_dir)
+    services = get_model_services(settings)
 
     for filename in os.listdir(docker_dir):
         if not filename.endswith(".yml"):
             continue
         with open(path.join(docker_dir, filename)) as f:
-            config = merge(config, yaml.safe_load(f.read()))
+            config_yaml = replace_vars(f.read(), settings)
+            config = merge(config, yaml.safe_load(config_yaml))
 
     config = merge(config, {"services": services})
 
+    def str_presenter(dumper, data):
+        """configures yaml for dumping multiline strings
+        Ref: https://stackoverflow.com/questions/8640959/how-can-i-control-what-scalar-form-pyyaml-uses-for-my-data"""
+        if data.count('\n') > 0:  # check for multiline string
+            return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+
+
+    yaml.add_representer(str, str_presenter)
+    yaml.representer.SafeRepresenter.add_representer(str, str_presenter) # to use with safe_dum
+
     print("\nWriting config")
     with open("docker-compose.yml", "w") as f:
-        f.write(yaml.dump(config))
+        f.write(yaml.dump(config, indent=2, default_flow_style=False))
