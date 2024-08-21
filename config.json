@@ -1,16 +1,16 @@
 {
-    "mdk_version": "1.28.4",
-    "api_version": "1.28.4",
-    "worker_version": "1.28.4",
+    "mdk_version": "2.3.5",
+    "api_version": "2.3.5",
+    "worker_version": "2.3.5",
     "ui_version": "1.11.7",
     "server_img": "coreoasis/api_server",
     "worker_img": "coreoasis/model_worker",
-    "model_dir": "models",
+    "model_dir": "Models",
     "docker_dir": "docker",
     "storage_account_name": "",
     "storage_account_key": "",
     "storage_container_name": "",
-    "worker_requires_root": false,
-    "oasis_port": 80,
+    "worker_requires_root": true,
+    "oasis_port": 8080,
     "admin_port": 8000
 }

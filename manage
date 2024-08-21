@@ -21,6 +21,11 @@ def cli():
     if not os.path.exists(config['model_dir']):
         os.makedirs(config['model_dir'])
 
+    try:
+        shutil.chown(config['model_dir'], 'oasis', 'oasis')
+    except:
+        print("Failed chowning model directory")
+
     if not os.path.exists("data"):
         os.makedirs("data")
 
