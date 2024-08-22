@@ -17,6 +17,7 @@ services:
      - OASIS_KEEP_REMOTE_DATA=0
      - OASIS_URL_SUB_PATH=1
      - OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@rabbit:5672"
+     - OASIS_CELERY_BROKER_TRANSPORT_URL="amqp://rabbit:rabbit@rabbit:5672"
      - OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer
      - OASIS_TASK_CONTROLLER_QUEUE=task-controller
      - OASIS_ADMIN_USER=${OASIS_ADMIN_USER:-admin}
@@ -55,6 +56,7 @@ services:
      - OASIS_KEEP_REMOTE_DATA=0
      - OASIS_URL_SUB_PATH=1
      - OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@rabbit:5672"
+     - OASIS_CELERY_BROKER_TRANSPORT_URL="amqp://rabbit:rabbit@rabbit:5672"
      - OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer
      - OASIS_TASK_CONTROLLER_QUEUE=task-controller
      - OASIS_DEBUG=1
@@ -91,6 +93,7 @@ services:
      - OASIS_KEEP_REMOTE_DATA=0
      - OASIS_URL_SUB_PATH=1
      - OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@rabbit:5672"
+     - OASIS_CELERY_BROKER_TRANSPORT_URL="amqp://rabbit:rabbit@rabbit:5672"
      - OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer
      - OASIS_TASK_CONTROLLER_QUEUE=task-controller
      - OASIS_DEBUG=1
@@ -127,6 +130,7 @@ services:
      - OASIS_KEEP_REMOTE_DATA=0
      - OASIS_URL_SUB_PATH=1
      - OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@rabbit:5672"
+     - OASIS_CELERY_BROKER_TRANSPORT_URL="amqp://rabbit:rabbit@rabbit:5672"
      - OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer
      - OASIS_TASK_CONTROLLER_QUEUE=task-controller
      - OASIS_DEBUG=1
@@ -176,6 +180,7 @@ services:
     image: rabbitmq:3.8.14-management
     ports:
       - 5672:5672
+      - 15672:15672
     environment:
       - RABBITMQ_DEFAULT_USER=rabbit
       - RABBITMQ_DEFAULT_PASS=rabbit

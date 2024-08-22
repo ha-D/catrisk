@@ -48,6 +48,7 @@ def get_model_services(config):
                     "OASIS_KEEP_REMOTE_DATA=0",
                     "OASIS_URL_SUB_PATH=1",
                     'OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@rabbit:5672',
+                    'OASIS_CELERY_BROKER_TRANSPORT_URL="amqp://rabbit:rabbit@rabbit:5672',
                     "OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer",
                     "OASIS_TASK_CONTROLLER_QUEUE=task-controller",
                     f"OASIS_MODEL_SUPPLIER_ID={metadata.get('supplier_id', 'CatRisk')}",
