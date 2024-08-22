@@ -12,6 +12,13 @@ services:
      - celery-db
      - rabbit
    environment:
+     - OASIS_KEEP_RUN_DIR=0
+     - OASIS_KEEP_LOCAL_DATA=0
+     - OASIS_KEEP_REMOTE_DATA=0
+     - OASIS_URL_SUB_PATH=1
+     - OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@broker:5672"
+     - OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer
+     - OASIS_TASK_CONTROLLER_QUEUE=task-controller
      - OASIS_ADMIN_USER=${OASIS_ADMIN_USER:-admin}
      - OASIS_ADMIN_PASS=${OASIS_ADMIN_PASS:-password}
      - OASIS_DEBUG=1
@@ -34,15 +41,92 @@ services:
      - STARTUP_RUN_MIGRATIONS=true
    volumes:
      - filestore-OasisData:/shared-fs:rw
-  worker-monitor:
+  v1-worker-monitor:
    restart: always
    image: ${server_img}:${api_version}
-   command: [wait-for-server, 'server:8000', celery, -A, src.server.oasisapi, worker, --loglevel=INFO]
+   command: [celery, -A, 'src.server.oasisapi.celery_app_v1', worker, --loglevel=INFO,]
    links:
      - server-db
      - celery-db
      - rabbit
    environment:
+     - OASIS_KEEP_RUN_DIR=0
+     - OASIS_KEEP_LOCAL_DATA=0
+     - OASIS_KEEP_REMOTE_DATA=0
+     - OASIS_URL_SUB_PATH=1
+     - OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@broker:5672"
+     - OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer
+     - OASIS_TASK_CONTROLLER_QUEUE=task-controller
+     - OASIS_DEBUG=1
+     - OASIS_RABBIT_HOST=rabbit
+     - OASIS_RABBIT_PORT=5672
+     - OASIS_RABBIT_USER=rabbit
+     - OASIS_RABBIT_PASS=rabbit
+     - OASIS_SERVER_DB_HOST=server-db
+     - OASIS_SERVER_DB_PASS=oasis
+     - OASIS_SERVER_DB_USER=oasis
+     - OASIS_SERVER_DB_NAME=oasis
+     - OASIS_SERVER_DB_PORT=5432
+     - OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2
+     - OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2
+     - OASIS_CELERY_DB_HOST=celery-db
+     - OASIS_CELERY_DB_PASS=password
+     - OASIS_CELERY_DB_USER=celery
+     - OASIS_CELERY_DB_NAME=celery
+     - OASIS_CELERY_DB_PORT=5432
+   volumes:
+     - filestore-OasisData:/shared-fs:rw
+  v2-worker-monitor:
+   restart: always
+   image: ${server_img}:${api_version}
+   command: [celery, -A, 'src.server.oasisapi.celery_app_v2', worker, --loglevel=INFO,  -Q, celery-v2]
+   links:
+     - server-db
+     - celery-db
+     - rabbit
+   environment:
+     - OASIS_KEEP_RUN_DIR=0
+     - OASIS_KEEP_LOCAL_DATA=0
+     - OASIS_KEEP_REMOTE_DATA=0
+     - OASIS_URL_SUB_PATH=1
+     - OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@broker:5672"
+     - OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer
+     - OASIS_TASK_CONTROLLER_QUEUE=task-controller
+     - OASIS_DEBUG=1
+     - OASIS_RABBIT_HOST=rabbit
+     - OASIS_RABBIT_PORT=5672
+     - OASIS_RABBIT_USER=rabbit
+     - OASIS_RABBIT_PASS=rabbit
+     - OASIS_SERVER_DB_HOST=server-db
+     - OASIS_SERVER_DB_PASS=oasis
+     - OASIS_SERVER_DB_USER=oasis
+     - OASIS_SERVER_DB_NAME=oasis
+     - OASIS_SERVER_DB_PORT=5432
+     - OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2
+     - OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2
+     - OASIS_CELERY_DB_HOST=celery-db
+     - OASIS_CELERY_DB_PASS=password
+     - OASIS_CELERY_DB_USER=celery
+     - OASIS_CELERY_DB_NAME=celery
+     - OASIS_CELERY_DB_PORT=5432
+   volumes:
+     - filestore-OasisData:/shared-fs:rw
+  task-controller:
+   restart: always
+   image: ${server_img}:${api_version}
+   command: [celery, -A, 'src.server.oasisapi.celery_app_v2', worker, --loglevel=INFO, -Q, task-controller]
+   links:
+     - server-db
+     - celery-db
+     - rabbit
+   environment:
+     - OASIS_KEEP_RUN_DIR=0
+     - OASIS_KEEP_LOCAL_DATA=0
+     - OASIS_KEEP_REMOTE_DATA=0
+     - OASIS_URL_SUB_PATH=1
+     - OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@broker:5672"
+     - OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer
+     - OASIS_TASK_CONTROLLER_QUEUE=task-controller
      - OASIS_DEBUG=1
      - OASIS_RABBIT_HOST=rabbit
      - OASIS_RABBIT_PORT=5672
@@ -71,6 +155,11 @@ services:
       - POSTGRES_PASSWORD=oasis
     volumes:
       - server-db-OasisData:/var/lib/postgresql/data:rw
+  channel-layer:
+    restart: always
+    image: redis:5.0.7
+    ports:
+      - 6379:6379
   celery-db:
     restart: always
     image: postgres

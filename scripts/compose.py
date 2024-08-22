@@ -23,28 +23,32 @@ def get_model_services(config):
 
         try:
             with open(path.join(model_dir, model, "meta_data.json")) as f:
-                    metadata = json.loads(f.read())
+                metadata = json.loads(f.read())
         except FileNotFoundError:
             continue
 
         print(f"Found model {model}")
 
         if config.get("worker_requires_root", False):
-            root_hack ="\nUSER root\nRUN ln -s /home/worker/.local /root/.local"
+            root_hack = "\nUSER root\nRUN ln -s /home/worker/.local /root/.local"
         else:
-            root_hack = ''
+            root_hack = ""
 
         services[f"worker-{model.lower()}"] = {
             "restart": "always",
             "build": {
                 "context": ".",
-                "dockerfile_inline":f'''FROM {config['worker_img']}:{config['worker_version']}{root_hack}\nRUN pip3 install msoffcrypto-tool openpyxl'''
+                "dockerfile_inline": f"""FROM {config['worker_img']}:{config['worker_version']}{root_hack}\nRUN pip3 install msoffcrypto-tool openpyxl""",
             },
-            "links": [
-                "celery-db",
-                "rabbit:myrabbit"
-            ],
+            "links": ["celery-db", "rabbit:myrabbit"],
             "environment": [
+                "OASIS_KEEP_RUN_DIR=0",
+                "OASIS_KEEP_LOCAL_DATA=0",
+                "OASIS_KEEP_REMOTE_DATA=0",
+                "OASIS_URL_SUB_PATH=1",
+                'OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@broker:5672',
+                "OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer",
+                "OASIS_TASK_CONTROLLER_QUEUE=task-controller",
                 f"OASIS_MODEL_SUPPLIER_ID={metadata.get('supplier_id', 'CatRisk')}",
                 f"OASIS_MODEL_ID={metadata.get('model_id', model)}",
                 f"OASIS_MODEL_VERSION_ID={metadata.get('version_id', '0.0.1')}",
@@ -64,15 +68,16 @@ def get_model_services(config):
             "volumes": [
                 f"./{model_dir}/{model}/:/home/worker/model",
                 "filestore-OasisData:/shared-fs:rw",
-                "./data/output:/home/worker/output"
-            ]
+                "./data/output:/home/worker/output",
+            ],
         }
 
     return services
 
 
 def merge(a, b, path=None):
-    if path is None: path = []
+    if path is None:
+        path = []
     for key in b:
         if key in a:
             if isinstance(a[key], dict) and isinstance(b[key], dict):
@@ -83,7 +88,7 @@ def merge(a, b, path=None):
                 print(a[key])
                 print()
                 print(b[key])
-                raise Exception('Conflict at %s' % '.'.join(path + [str(key)]))
+                raise Exception("Conflict at %s" % ".".join(path + [str(key)]))
         else:
             a[key] = b[key]
     return a
@@ -91,6 +96,7 @@ def merge(a, b, path=None):
 
 def replace_vars(template, config):
     from string import Template
+
     return Template(template).safe_substitute(config)
 
 
@@ -111,14 +117,16 @@ def compose(config):
 
     def str_presenter(dumper, data):
         """configures yaml for dumping multiline strings
-        Ref: https://stackoverflow.com/questions/8640959/how-can-i-control-what-scalar-form-pyyaml-uses-for-my-data"""
-        if data.count('\n') > 0:  # check for multiline string
-            return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data)
-
+        Ref: https://stackoverflow.com/questions/8640959/how-can-i-control-what-scalar-form-pyyaml-uses-for-my-data
+        """
+        if data.count("\n") > 0:  # check for multiline string
+            return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 
     yaml.add_representer(str, str_presenter)
-    yaml.representer.SafeRepresenter.add_representer(str, str_presenter) # to use with safe_dum
+    yaml.representer.SafeRepresenter.add_representer(
+        str, str_presenter
+    )  # to use with safe_dum
 
     print("\nWriting config")
     with open("docker-compose.yml", "w") as f:
