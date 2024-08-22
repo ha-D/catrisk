@@ -74,6 +74,7 @@ services:
      - OASIS_CELERY_DB_USER=celery
      - OASIS_CELERY_DB_NAME=celery
      - OASIS_CELERY_DB_PORT=5432
+     - OASIS_RUN_MODE=v1
    volumes:
      - filestore-OasisData:/shared-fs:rw
   v2-worker-monitor:
@@ -109,9 +110,10 @@ services:
      - OASIS_CELERY_DB_USER=celery
      - OASIS_CELERY_DB_NAME=celery
      - OASIS_CELERY_DB_PORT=5432
+     - OASIS_RUN_MODE=v2
    volumes:
      - filestore-OasisData:/shared-fs:rw
-  task-controller:
+  v2-task-controller:
    restart: always
    image: ${server_img}:${api_version}
    command: [celery, -A, 'src.server.oasisapi.celery_app_v2', worker, --loglevel=INFO, -Q, task-controller]
@@ -172,6 +174,8 @@ services:
   rabbit:
     restart: always
     image: rabbitmq:3.8.14-management
+    ports:
+      - 5672:5672
     environment:
       - RABBITMQ_DEFAULT_USER=rabbit
       - RABBITMQ_DEFAULT_PASS=rabbit

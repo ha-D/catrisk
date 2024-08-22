@@ -34,43 +34,45 @@ def get_model_services(config):
         else:
             root_hack = ""
 
-        services[f"worker-{model.lower()}"] = {
-            "restart": "always",
-            "build": {
-                "context": ".",
-                "dockerfile_inline": f"""FROM {config['worker_img']}:{config['worker_version']}{root_hack}\nRUN pip3 install msoffcrypto-tool openpyxl""",
-            },
-            "links": ["celery-db", "rabbit:myrabbit"],
-            "environment": [
-                "OASIS_KEEP_RUN_DIR=0",
-                "OASIS_KEEP_LOCAL_DATA=0",
-                "OASIS_KEEP_REMOTE_DATA=0",
-                "OASIS_URL_SUB_PATH=1",
-                'OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@rabbit:5672',
-                "OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer",
-                "OASIS_TASK_CONTROLLER_QUEUE=task-controller",
-                f"OASIS_MODEL_SUPPLIER_ID={metadata.get('supplier_id', 'CatRisk')}",
-                f"OASIS_MODEL_ID={metadata.get('model_id', model)}",
-                f"OASIS_MODEL_VERSION_ID={metadata.get('version_id', '0.0.1')}",
-                "OASIS_RABBIT_HOST=rabbit",
-                "OASIS_RABBIT_PORT=5672",
-                "OASIS_RABBIT_USER=rabbit",
-                "OASIS_RABBIT_PASS=rabbit",
-                "OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2",
-                "OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2",
-                "OASIS_CELERY_DB_HOST=celery-db",
-                "OASIS_CELERY_DB_PASS=password",
-                "OASIS_CELERY_DB_USER=celery",
-                "OASIS_CELERY_DB_NAME=celery",
-                "OASIS_CELERY_DB_PORT=5432",
-                "OASIS_MODEL_DATA_DIRECTORY=/home/worker/model",
-            ],
-            "volumes": [
-                f"./{model_dir}/{model}/:/home/worker/model",
-                "filestore-OasisData:/shared-fs:rw",
-                "./data/output:/home/worker/output",
-            ],
-        }
+        for v in ["v1", "v2"]:
+            services[f"worker-{model.lower()}-{v}"] = {
+                "restart": "always",
+                "build": {
+                    "context": ".",
+                    "dockerfile_inline": f"""FROM {config['worker_img']}:{config['worker_version']}{root_hack}\nRUN pip3 install msoffcrypto-tool openpyxl""",
+                },
+                "links": ["celery-db", "rabbit:myrabbit"],
+                "environment": [
+                    "OASIS_KEEP_RUN_DIR=0",
+                    "OASIS_KEEP_LOCAL_DATA=0",
+                    "OASIS_KEEP_REMOTE_DATA=0",
+                    "OASIS_URL_SUB_PATH=1",
+                    'OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@rabbit:5672',
+                    "OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer",
+                    "OASIS_TASK_CONTROLLER_QUEUE=task-controller",
+                    f"OASIS_MODEL_SUPPLIER_ID={metadata.get('supplier_id', 'CatRisk')}",
+                    f"OASIS_MODEL_ID={metadata.get('model_id', model)}",
+                    f"OASIS_MODEL_VERSION_ID={metadata.get('version_id', '0.0.1')}",
+                    "OASIS_RABBIT_HOST=rabbit",
+                    "OASIS_RABBIT_PORT=5672",
+                    "OASIS_RABBIT_USER=rabbit",
+                    "OASIS_RABBIT_PASS=rabbit",
+                    "OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2",
+                    "OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2",
+                    "OASIS_CELERY_DB_HOST=celery-db",
+                    "OASIS_CELERY_DB_PASS=password",
+                    "OASIS_CELERY_DB_USER=celery",
+                    "OASIS_CELERY_DB_NAME=celery",
+                    "OASIS_CELERY_DB_PORT=5432",
+                    "OASIS_MODEL_DATA_DIRECTORY=/home/worker/model",
+                    f"OASIS_RUN_MODE={v}",
+                ],
+                "volumes": [
+                    f"./{model_dir}/{model}/:/home/worker/model",
+                    "filestore-OasisData:/shared-fs:rw",
+                    "./data/output:/home/worker/output",
+                ],
+            }
 
     return services
 
