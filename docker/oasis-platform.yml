@@ -46,7 +46,6 @@ services:
    image: coreoasis/api_server:2.3.5
    command: ["./wsgi/run-wsgi.sh"]
    ports:
-     - 8000:8000
      - 51970:51970
    links:
      - server-db
@@ -165,8 +164,6 @@ services:
      - API_VERSION=v2
      - API_SHARE_FILEPATH=./downloads
      - OASIS_ENVIRONMENT=oasis_localhost
-    ports:
-     - 3838:3838
   portainer:
    restart: always
    image: portainer/portainer:latest
