@@ -1,5 +1,5 @@
 :80 {
-    reverse_proxy ui:3838
+    reverse_proxy user-interface:3838
 }
 
 :8000 {
