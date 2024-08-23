@@ -166,7 +166,7 @@ services:
      - API_SHARE_FILEPATH=./downloads
      - OASIS_ENVIRONMENT=oasis_localhost
     ports:
-     - 8080:3838
+     - 3838:3838
   portainer:
    restart: always
    image: portainer/portainer:latest
