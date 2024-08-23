@@ -1,56 +1,116 @@
 services:
+  broker:
+    environment:
+    - RABBITMQ_DEFAULT_USER=rabbit
+    - RABBITMQ_DEFAULT_PASS=rabbit
+    image: rabbitmq:3.8.14-management
+    ports:
+    - 5672:5672
+    - 15672:15672
+    restart: always
   caddy:
     image: caddy:latest
     ports:
     - 8080:80
     - 8000:8000
-    - 443:443
     restart: unless-stopped
     volumes:
-    - ./Caddyfile:/etc/caddy/Caddyfile
+    - ./docker/Caddyfile:/etc/caddy/Caddyfile
+  celery-beat_v2:
+    command:
+    - celery
+    - -A
+    - src.server.oasisapi.celery_app_v2
+    - beat
+    - --loglevel=INFO
+    environment:
+      OASIS_CELERY_BROKER_URL: amqp://rabbit:rabbit@broker:5672
+      OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+      OASIS_CELERY_DB_HOST: celery-db
+      OASIS_CELERY_DB_NAME: celery
+      OASIS_CELERY_DB_PASS: password
+      OASIS_CELERY_DB_PORT: 5432
+      OASIS_CELERY_DB_USER: celery
+      OASIS_DEBUG: 0
+      OASIS_KEEP_LOCAL_DATA: 0
+      OASIS_KEEP_REMOTE_DATA: 0
+      OASIS_KEEP_RUN_DIR: 0
+      OASIS_SERVER_CHANNEL_LAYER_HOST: channel-layer
+      OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql_psycopg2
+      OASIS_SERVER_DB_HOST: server-db
+      OASIS_SERVER_DB_NAME: oasis
+      OASIS_SERVER_DB_PASS: oasis
+      OASIS_SERVER_DB_PORT: 5432
+      OASIS_SERVER_DB_USER: oasis
+      OASIS_TASK_CONTROLLER_QUEUE: task-controller
+      OASIS_URL_SUB_PATH: 1
+    image: coreoasis/api_server:2.3.5
+    links:
+    - server-db
+    - celery-db
+    - broker
+    restart: always
+    volumes: &id001
+    - filestore-OasisData:/shared-fs:rw
   celery-db:
     environment:
     - POSTGRES_DB=celery
     - POSTGRES_USER=celery
     - POSTGRES_PASSWORD=password
     image: postgres
+    ports:
+    - 33306:5432
     restart: always
     volumes:
     - celery-db-OasisData:/var/lib/postgresql/data:rw
-  rabbit:
-    environment:
-    - RABBITMQ_DEFAULT_USER=rabbit
-    - RABBITMQ_DEFAULT_PASS=rabbit
-    image: rabbitmq:3.8.14-management
+  channel-layer:
+    image: redis:5.0.7
+    ports:
+    - 6379:6379
     restart: always
+  portainer:
+    image: portainer/portainer:latest
+    ports:
+    - 8002:8002
+    - 9000:9000
+    restart: always
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - ./portainer_data:/data portainer/portainer
   server:
+    command:
+    - ./wsgi/run-wsgi.sh
     environment:
-    - OASIS_ADMIN_USER=${OASIS_ADMIN_USER:-admin}
-    - OASIS_ADMIN_PASS=${OASIS_ADMIN_PASS:-password}
-    - OASIS_DEBUG=1
-    - OASIS_RABBIT_HOST=rabbit
-    - OASIS_RABBIT_PORT=5672
-    - OASIS_RABBIT_USER=rabbit
-    - OASIS_RABBIT_PASS=rabbit
-    - OASIS_SERVER_DB_HOST=server-db
-    - OASIS_SERVER_DB_PASS=oasis
-    - OASIS_SERVER_DB_USER=oasis
-    - OASIS_SERVER_DB_NAME=oasis
-    - OASIS_SERVER_DB_PORT=5432
-    - OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2
-    - OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2
-    - OASIS_CELERY_DB_HOST=celery-db
-    - OASIS_CELERY_DB_PASS=password
-    - OASIS_CELERY_DB_USER=celery
-    - OASIS_CELERY_DB_NAME=celery
-    - OASIS_CELERY_DB_PORT=5432
-    - STARTUP_RUN_MIGRATIONS=true
+      OASIS_ADMIN_PASS: password
+      OASIS_ADMIN_USER: admin
+      OASIS_CELERY_BROKER_URL: amqp://rabbit:rabbit@broker:5672
+      OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+      OASIS_CELERY_DB_HOST: celery-db
+      OASIS_CELERY_DB_NAME: celery
+      OASIS_CELERY_DB_PASS: password
+      OASIS_CELERY_DB_PORT: 5432
+      OASIS_CELERY_DB_USER: celery
+      OASIS_DEBUG: 0
+      OASIS_KEEP_LOCAL_DATA: 0
+      OASIS_KEEP_REMOTE_DATA: 0
+      OASIS_KEEP_RUN_DIR: 0
+      OASIS_SERVER_CHANNEL_LAYER_HOST: channel-layer
+      OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql_psycopg2
+      OASIS_SERVER_DB_HOST: server-db
+      OASIS_SERVER_DB_NAME: oasis
+      OASIS_SERVER_DB_PASS: oasis
+      OASIS_SERVER_DB_PORT: 5432
+      OASIS_SERVER_DB_USER: oasis
+      OASIS_TASK_CONTROLLER_QUEUE: task-controller
+      OASIS_URL_SUB_PATH: 1
+      STARTUP_RUN_MIGRATIONS: 'true'
     image: coreoasis/api_server:2.3.5
-    command: ["./wsgi/run-wsgi.sh"]
     links:
     - server-db
     - celery-db
-    - rabbit
+    - broker
+    ports:
+    - 51970:51970
     restart: always
     volumes:
     - filestore-OasisData:/shared-fs:rw
@@ -60,9 +120,70 @@ services:
     - POSTGRES_USER=oasis
     - POSTGRES_PASSWORD=oasis
     image: postgres
+    ports:
+    - 33307:5432
     restart: always
     volumes:
     - server-db-OasisData:/var/lib/postgresql/data:rw
+  server_websocket:
+    command:
+    - ./asgi/run-asgi.sh
+    environment:
+      OASIS_CELERY_BROKER_URL: amqp://rabbit:rabbit@broker:5672
+      OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+      OASIS_CELERY_DB_HOST: celery-db
+      OASIS_CELERY_DB_NAME: celery
+      OASIS_CELERY_DB_PASS: password
+      OASIS_CELERY_DB_PORT: 5432
+      OASIS_CELERY_DB_USER: celery
+      OASIS_DEBUG: 0
+      OASIS_KEEP_LOCAL_DATA: 0
+      OASIS_KEEP_REMOTE_DATA: 0
+      OASIS_KEEP_RUN_DIR: 0
+      OASIS_SERVER_CHANNEL_LAYER_HOST: channel-layer
+      OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql_psycopg2
+      OASIS_SERVER_DB_HOST: server-db
+      OASIS_SERVER_DB_NAME: oasis
+      OASIS_SERVER_DB_PASS: oasis
+      OASIS_SERVER_DB_PORT: 5432
+      OASIS_SERVER_DB_USER: oasis
+      OASIS_TASK_CONTROLLER_QUEUE: task-controller
+      OASIS_URL_SUB_PATH: 1
+    image: coreoasis/api_server:2.3.5
+    links:
+    - server-db
+    - celery-db
+    - broker
+    ports:
+    - 8001:8001
+    restart: always
+    volumes:
+    - filestore-OasisData:/shared-fs:rw
+  stable-worker:
+    environment:
+      OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+      OASIS_CELERY_DB_HOST: celery-db
+      OASIS_CELERY_DB_NAME: celery
+      OASIS_CELERY_DB_PASS: password
+      OASIS_CELERY_DB_PORT: 5432
+      OASIS_CELERY_DB_USER: celery
+      OASIS_DEBUG: ${DEBUG:-0}
+      OASIS_MODEL_DATA_DIRECTORY: /home/worker/model
+      OASIS_MODEL_ID: PiWind
+      OASIS_MODEL_SUPPLIER_ID: OasisLMF
+      OASIS_MODEL_VERSION_ID: 1.28.4
+      OASIS_RABBIT_HOST: broker
+      OASIS_RABBIT_PASS: rabbit
+      OASIS_RABBIT_PORT: 5672
+      OASIS_RABBIT_USER: rabbit
+    image: coreoasis/model_worker:1.28.4
+    links:
+    - celery-db
+    - broker:mybroker
+    restart: always
+    volumes:
+    - ${OASIS_MODEL_DATA_DIR:-./data/static}:/home/worker/model:rw
+    - filestore-OasisData:/shared-fs:rw
   ui:
     environment:
     - API_IP=server
@@ -72,103 +193,196 @@ services:
     - OASIS_ENVIRONMENT=oasis_localhost
     image: coreoasis/oasisui_app:1.11.7
     restart: always
-  worker-afeq_2019:
-    build:
-      context: .
-      dockerfile_inline: |-
-        FROM coreoasis/model_worker:2.3.5
-        USER root
-        RUN ln -s /home/worker/.local /root/.local
-        RUN pip3 install msoffcrypto-tool openpyxl
+  user-interface:
+    container_name: oasisui_app
     environment:
-    - OASIS_MODEL_SUPPLIER_ID=CatRisk
-    - OASIS_MODEL_ID=AFEQ_2019
-    - OASIS_MODEL_VERSION_ID=R.1.2.1.G
-    - OASIS_RABBIT_HOST=rabbit
-    - OASIS_RABBIT_PORT=5672
-    - OASIS_RABBIT_USER=rabbit
-    - OASIS_RABBIT_PASS=rabbit
-    - OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2
-    - OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2
-    - OASIS_CELERY_DB_HOST=celery-db
-    - OASIS_CELERY_DB_PASS=password
-    - OASIS_CELERY_DB_USER=celery
-    - OASIS_CELERY_DB_NAME=celery
-    - OASIS_CELERY_DB_PORT=5432
-    - OASIS_MODEL_DATA_DIRECTORY=/home/worker/model
+    - API_IP=server:8000/api/
+    - API_VERSION=v2
+    - API_SHARE_FILEPATH=./downloads
+    - OASIS_ENVIRONMENT=oasis_localhost
+    image: coreoasis/oasisui_app:${VERS_UI:-latest}
+    restart: always
+  v1-worker:
+    environment:
+      OASIS_CELERY_BROKER_URL: amqp://rabbit:rabbit@broker:5672
+      OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+      OASIS_CELERY_DB_HOST: celery-db
+      OASIS_CELERY_DB_NAME: celery
+      OASIS_CELERY_DB_PASS: password
+      OASIS_CELERY_DB_PORT: 5432
+      OASIS_CELERY_DB_USER: celery
+      OASIS_DEBUG: 0
+      OASIS_KEEP_LOCAL_DATA: 0
+      OASIS_KEEP_REMOTE_DATA: 0
+      OASIS_KEEP_RUN_DIR: 0
+      OASIS_MODEL_ID: PiWind
+      OASIS_MODEL_SUPPLIER_ID: OasisLMF
+      OASIS_MODEL_VERSION_ID: v1
+      OASIS_RUN_MODE: v1
+      OASIS_SERVER_CHANNEL_LAYER_HOST: channel-layer
+      OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql_psycopg2
+      OASIS_SERVER_DB_HOST: server-db
+      OASIS_SERVER_DB_NAME: oasis
+      OASIS_SERVER_DB_PASS: oasis
+      OASIS_SERVER_DB_PORT: 5432
+      OASIS_SERVER_DB_USER: oasis
+      OASIS_TASK_CONTROLLER_QUEUE: task-controller
+      OASIS_URL_SUB_PATH: 1
+    image: coreoasis/model_worker:2.3.5
     links:
     - celery-db
-    - rabbit:myrabbit
+    - broker:mybroker
     restart: always
     volumes:
-    - ./Models/AFEQ_2019/:/home/worker/model
+    - ${OASIS_MODEL_DATA_DIR:-./data/static}:/home/worker/model:rw
     - filestore-OasisData:/shared-fs:rw
-    - ./data/output:/home/worker/output
-  worker-crseq-2.1.2:
-    build:
-      context: .
-      dockerfile_inline: |-
-        FROM coreoasis/model_worker:2.3.5
-        USER root
-        RUN ln -s /home/worker/.local /root/.local
-        RUN pip3 install msoffcrypto-tool openpyxl
+  v1-worker-monitor:
+    command:
+    - celery
+    - -A
+    - src.server.oasisapi.celery_app_v1
+    - worker
+    - --loglevel=INFO
     environment:
-    - OASIS_MODEL_SUPPLIER_ID=CatRisk
-    - OASIS_MODEL_ID=CRSEQ
-    - OASIS_MODEL_VERSION_ID=R.2.1.1
-    - OASIS_RABBIT_HOST=rabbit
-    - OASIS_RABBIT_PORT=5672
-    - OASIS_RABBIT_USER=rabbit
-    - OASIS_RABBIT_PASS=rabbit
-    - OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2
-    - OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2
-    - OASIS_CELERY_DB_HOST=celery-db
-    - OASIS_CELERY_DB_PASS=password
-    - OASIS_CELERY_DB_USER=celery
-    - OASIS_CELERY_DB_NAME=celery
-    - OASIS_CELERY_DB_PORT=5432
-    - OASIS_MODEL_DATA_DIRECTORY=/home/worker/model
+      OASIS_CELERY_BROKER_URL: amqp://rabbit:rabbit@broker:5672
+      OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+      OASIS_CELERY_DB_HOST: celery-db
+      OASIS_CELERY_DB_NAME: celery
+      OASIS_CELERY_DB_PASS: password
+      OASIS_CELERY_DB_PORT: 5432
+      OASIS_CELERY_DB_USER: celery
+      OASIS_DEBUG: 0
+      OASIS_KEEP_LOCAL_DATA: 0
+      OASIS_KEEP_REMOTE_DATA: 0
+      OASIS_KEEP_RUN_DIR: 0
+      OASIS_SERVER_CHANNEL_LAYER_HOST: channel-layer
+      OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql_psycopg2
+      OASIS_SERVER_DB_HOST: server-db
+      OASIS_SERVER_DB_NAME: oasis
+      OASIS_SERVER_DB_PASS: oasis
+      OASIS_SERVER_DB_PORT: 5432
+      OASIS_SERVER_DB_USER: oasis
+      OASIS_TASK_CONTROLLER_QUEUE: task-controller
+      OASIS_URL_SUB_PATH: 1
+    image: coreoasis/api_server:2.3.5
     links:
+    - server-db
     - celery-db
-    - rabbit:myrabbit
+    - broker
     restart: always
     volumes:
-    - ./Models/CRSEQ-2.1.2/:/home/worker/model
     - filestore-OasisData:/shared-fs:rw
-    - ./data/output:/home/worker/output
-  worker-crseq-nasco:
-    build:
-      context: .
-      dockerfile_inline: |-
-        FROM coreoasis/model_worker:2.3.5
-        USER root
-        RUN ln -s /home/worker/.local /root/.local
-        RUN pip3 install msoffcrypto-tool openpyxl
+  v2-task-controller:
+    command:
+    - celery
+    - -A
+    - src.server.oasisapi.celery_app_v2
+    - worker
+    - --loglevel=INFO
+    - -Q
+    - task-controller
     environment:
-    - OASIS_MODEL_SUPPLIER_ID=CatRisk
-    - OASIS_MODEL_ID=CRSEQ-NASCO
-    - OASIS_MODEL_VERSION_ID=R.2.1.3
-    - OASIS_RABBIT_HOST=rabbit
-    - OASIS_RABBIT_PORT=5672
-    - OASIS_RABBIT_USER=rabbit
-    - OASIS_RABBIT_PASS=rabbit
-    - OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2
-    - OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2
-    - OASIS_CELERY_DB_HOST=celery-db
-    - OASIS_CELERY_DB_PASS=password
-    - OASIS_CELERY_DB_USER=celery
-    - OASIS_CELERY_DB_NAME=celery
-    - OASIS_CELERY_DB_PORT=5432
-    - OASIS_MODEL_DATA_DIRECTORY=/home/worker/model
+      OASIS_CELERY_BROKER_URL: amqp://rabbit:rabbit@broker:5672
+      OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+      OASIS_CELERY_DB_HOST: celery-db
+      OASIS_CELERY_DB_NAME: celery
+      OASIS_CELERY_DB_PASS: password
+      OASIS_CELERY_DB_PORT: 5432
+      OASIS_CELERY_DB_USER: celery
+      OASIS_DEBUG: 0
+      OASIS_KEEP_LOCAL_DATA: 0
+      OASIS_KEEP_REMOTE_DATA: 0
+      OASIS_KEEP_RUN_DIR: 0
+      OASIS_SERVER_CHANNEL_LAYER_HOST: channel-layer
+      OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql_psycopg2
+      OASIS_SERVER_DB_HOST: server-db
+      OASIS_SERVER_DB_NAME: oasis
+      OASIS_SERVER_DB_PASS: oasis
+      OASIS_SERVER_DB_PORT: 5432
+      OASIS_SERVER_DB_USER: oasis
+      OASIS_TASK_CONTROLLER_QUEUE: task-controller
+      OASIS_URL_SUB_PATH: 1
+    image: coreoasis/api_server:2.3.5
     links:
+    - server-db
     - celery-db
-    - rabbit:myrabbit
+    - broker
     restart: always
     volumes:
-    - ./Models/CRSEQ-NASCO/:/home/worker/model
     - filestore-OasisData:/shared-fs:rw
-    - ./data/output:/home/worker/output
-  worker-crseq_2.1.4:
+  v2-worker:
+    environment:
+      OASIS_CELERY_BROKER_URL: amqp://rabbit:rabbit@broker:5672
+      OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+      OASIS_CELERY_DB_HOST: celery-db
+      OASIS_CELERY_DB_NAME: celery
+      OASIS_CELERY_DB_PASS: password
+      OASIS_CELERY_DB_PORT: 5432
+      OASIS_CELERY_DB_USER: celery
+      OASIS_DEBUG: 0
+      OASIS_KEEP_LOCAL_DATA: 0
+      OASIS_KEEP_REMOTE_DATA: 0
+      OASIS_KEEP_RUN_DIR: 0
+      OASIS_MODEL_ID: PiWind
+      OASIS_MODEL_SUPPLIER_ID: OasisLMF
+      OASIS_MODEL_VERSION_ID: v2
+      OASIS_RUN_MODE: v2
+      OASIS_SERVER_CHANNEL_LAYER_HOST: channel-layer
+      OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql_psycopg2
+      OASIS_SERVER_DB_HOST: server-db
+      OASIS_SERVER_DB_NAME: oasis
+      OASIS_SERVER_DB_PASS: oasis
+      OASIS_SERVER_DB_PORT: 5432
+      OASIS_SERVER_DB_USER: oasis
+      OASIS_TASK_CONTROLLER_QUEUE: task-controller
+      OASIS_URL_SUB_PATH: 1
+    image: coreoasis/model_worker:2.3.5
+    links:
+    - celery-db
+    - broker:mybroker
+    restart: always
+    volumes:
+    - ${OASIS_MODEL_DATA_DIR:-./data/static}:/home/worker/model:rw
+    - filestore-OasisData:/shared-fs:rw
+  v2-worker-monitor:
+    command:
+    - celery
+    - -A
+    - src.server.oasisapi.celery_app_v2
+    - worker
+    - --loglevel=INFO
+    - -Q
+    - celery-v2
+    environment:
+      OASIS_CELERY_BROKER_URL: amqp://rabbit:rabbit@broker:5672
+      OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+      OASIS_CELERY_DB_HOST: celery-db
+      OASIS_CELERY_DB_NAME: celery
+      OASIS_CELERY_DB_PASS: password
+      OASIS_CELERY_DB_PORT: 5432
+      OASIS_CELERY_DB_USER: celery
+      OASIS_DEBUG: 0
+      OASIS_KEEP_LOCAL_DATA: 0
+      OASIS_KEEP_REMOTE_DATA: 0
+      OASIS_KEEP_RUN_DIR: 0
+      OASIS_SERVER_CHANNEL_LAYER_HOST: channel-layer
+      OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql_psycopg2
+      OASIS_SERVER_DB_HOST: server-db
+      OASIS_SERVER_DB_NAME: oasis
+      OASIS_SERVER_DB_PASS: oasis
+      OASIS_SERVER_DB_PORT: 5432
+      OASIS_SERVER_DB_USER: oasis
+      OASIS_TASK_CONTROLLER_QUEUE: task-controller
+      OASIS_URL_SUB_PATH: 1
+    image: coreoasis/api_server:2.3.5
+    links:
+    - server-db
+    - celery-db
+    - broker
+    restart: always
+    volumes:
+    - filestore-OasisData:/shared-fs:rw
+  worker-crseq_2.1.4-v1:
     build:
       context: .
       dockerfile_inline: |-
@@ -177,30 +391,40 @@ services:
         RUN ln -s /home/worker/.local /root/.local
         RUN pip3 install msoffcrypto-tool openpyxl
     environment:
-    - OASIS_MODEL_SUPPLIER_ID=CatRisk
-    - OASIS_MODEL_ID=CRSEQ_2.1.4
-    - OASIS_MODEL_VERSION_ID=R.2.1.4
-    - OASIS_RABBIT_HOST=rabbit
-    - OASIS_RABBIT_PORT=5672
-    - OASIS_RABBIT_USER=rabbit
-    - OASIS_RABBIT_PASS=rabbit
-    - OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2
-    - OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2
-    - OASIS_CELERY_DB_HOST=celery-db
-    - OASIS_CELERY_DB_PASS=password
-    - OASIS_CELERY_DB_USER=celery
-    - OASIS_CELERY_DB_NAME=celery
-    - OASIS_CELERY_DB_PORT=5432
-    - OASIS_MODEL_DATA_DIRECTORY=/home/worker/model
+      OASIS_CELERY_BROKER_URL: amqp://rabbit:rabbit@broker:5672
+      OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+      OASIS_CELERY_DB_HOST: celery-db
+      OASIS_CELERY_DB_NAME: celery
+      OASIS_CELERY_DB_PASS: password
+      OASIS_CELERY_DB_PORT: 5432
+      OASIS_CELERY_DB_USER: celery
+      OASIS_DEBUG: 0
+      OASIS_KEEP_LOCAL_DATA: 0
+      OASIS_KEEP_REMOTE_DATA: 0
+      OASIS_KEEP_RUN_DIR: 0
+      OASIS_MODEL_DATA_DIRECTORY: /home/worker/model
+      OASIS_MODEL_ID: CRSEQ_2.1.4
+      OASIS_MODEL_SUPPLIER_ID: CatRisk
+      OASIS_MODEL_VERSION_ID: R.2.1.4
+      OASIS_RUN_MODE: v1
+      OASIS_SERVER_CHANNEL_LAYER_HOST: channel-layer
+      OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql_psycopg2
+      OASIS_SERVER_DB_HOST: server-db
+      OASIS_SERVER_DB_NAME: oasis
+      OASIS_SERVER_DB_PASS: oasis
+      OASIS_SERVER_DB_PORT: 5432
+      OASIS_SERVER_DB_USER: oasis
+      OASIS_TASK_CONTROLLER_QUEUE: task-controller
+      OASIS_URL_SUB_PATH: 1
     links:
     - celery-db
-    - rabbit:myrabbit
+    - broker:mybroker
     restart: always
     volumes:
     - ./Models/CRSEQ_2.1.4/:/home/worker/model
     - filestore-OasisData:/shared-fs:rw
     - ./data/output:/home/worker/output
-  worker-crseq_2.1.5:
+  worker-crseq_2.1.4-v2:
     build:
       context: .
       dockerfile_inline: |-
@@ -209,133 +433,75 @@ services:
         RUN ln -s /home/worker/.local /root/.local
         RUN pip3 install msoffcrypto-tool openpyxl
     environment:
-    - OASIS_MODEL_SUPPLIER_ID=CatRisk
-    - OASIS_MODEL_ID=CRSEQ_2.1.5
-    - OASIS_MODEL_VERSION_ID=R.2.1.5
-    - OASIS_RABBIT_HOST=rabbit
-    - OASIS_RABBIT_PORT=5672
-    - OASIS_RABBIT_USER=rabbit
-    - OASIS_RABBIT_PASS=rabbit
-    - OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2
-    - OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2
-    - OASIS_CELERY_DB_HOST=celery-db
-    - OASIS_CELERY_DB_PASS=password
-    - OASIS_CELERY_DB_USER=celery
-    - OASIS_CELERY_DB_NAME=celery
-    - OASIS_CELERY_DB_PORT=5432
-    - OASIS_MODEL_DATA_DIRECTORY=/home/worker/model
+      OASIS_CELERY_BROKER_URL: amqp://rabbit:rabbit@broker:5672
+      OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+      OASIS_CELERY_DB_HOST: celery-db
+      OASIS_CELERY_DB_NAME: celery
+      OASIS_CELERY_DB_PASS: password
+      OASIS_CELERY_DB_PORT: 5432
+      OASIS_CELERY_DB_USER: celery
+      OASIS_DEBUG: 0
+      OASIS_KEEP_LOCAL_DATA: 0
+      OASIS_KEEP_REMOTE_DATA: 0
+      OASIS_KEEP_RUN_DIR: 0
+      OASIS_MODEL_DATA_DIRECTORY: /home/worker/model
+      OASIS_MODEL_ID: CRSEQ_2.1.4
+      OASIS_MODEL_SUPPLIER_ID: CatRisk
+      OASIS_MODEL_VERSION_ID: R.2.1.4
+      OASIS_RUN_MODE: v2
+      OASIS_SERVER_CHANNEL_LAYER_HOST: channel-layer
+      OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql_psycopg2
+      OASIS_SERVER_DB_HOST: server-db
+      OASIS_SERVER_DB_NAME: oasis
+      OASIS_SERVER_DB_PASS: oasis
+      OASIS_SERVER_DB_PORT: 5432
+      OASIS_SERVER_DB_USER: oasis
+      OASIS_TASK_CONTROLLER_QUEUE: task-controller
+      OASIS_URL_SUB_PATH: 1
     links:
     - celery-db
-    - rabbit:myrabbit
+    - broker:mybroker
     restart: always
     volumes:
-    - ./Models/CRSEQ_2.1.5/:/home/worker/model
+    - ./Models/CRSEQ_2.1.4/:/home/worker/model
     - filestore-OasisData:/shared-fs:rw
     - ./data/output:/home/worker/output
-  worker-crseq_nv:
-    build:
-      context: .
-      dockerfile_inline: |-
-        FROM coreoasis/model_worker:2.3.5
-        USER root
-        RUN ln -s /home/worker/.local /root/.local
-        RUN pip3 install msoffcrypto-tool openpyxl
-    environment:
-    - OASIS_MODEL_SUPPLIER_ID=CatRisk
-    - OASIS_MODEL_ID=CRSEQ_NV
-    - OASIS_MODEL_VERSION_ID=R.2.1.1
-    - OASIS_RABBIT_HOST=rabbit
-    - OASIS_RABBIT_PORT=5672
-    - OASIS_RABBIT_USER=rabbit
-    - OASIS_RABBIT_PASS=rabbit
-    - OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2
-    - OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2
-    - OASIS_CELERY_DB_HOST=celery-db
-    - OASIS_CELERY_DB_PASS=password
-    - OASIS_CELERY_DB_USER=celery
-    - OASIS_CELERY_DB_NAME=celery
-    - OASIS_CELERY_DB_PORT=5432
-    - OASIS_MODEL_DATA_DIRECTORY=/home/worker/model
-    links:
-    - celery-db
-    - rabbit:myrabbit
-    restart: always
-    volumes:
-    - ./Models/CRSEQ_NV/:/home/worker/model
-    - filestore-OasisData:/shared-fs:rw
-    - ./data/output:/home/worker/output
-  worker-menaeq:
-    build:
-      context: .
-      dockerfile_inline: |-
-        FROM coreoasis/model_worker:2.3.5
-        USER root
-        RUN ln -s /home/worker/.local /root/.local
-        RUN pip3 install msoffcrypto-tool openpyxl
-    environment:
-    - OASIS_MODEL_SUPPLIER_ID=CatRisk
-    - OASIS_MODEL_ID=MENAEQ
-    - OASIS_MODEL_VERSION_ID=R.1.2.1.G
-    - OASIS_RABBIT_HOST=rabbit
-    - OASIS_RABBIT_PORT=5672
-    - OASIS_RABBIT_USER=rabbit
-    - OASIS_RABBIT_PASS=rabbit
-    - OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2
-    - OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2
-    - OASIS_CELERY_DB_HOST=celery-db
-    - OASIS_CELERY_DB_PASS=password
-    - OASIS_CELERY_DB_USER=celery
-    - OASIS_CELERY_DB_NAME=celery
-    - OASIS_CELERY_DB_PORT=5432
-    - OASIS_MODEL_DATA_DIRECTORY=/home/worker/model
-    links:
-    - celery-db
-    - rabbit:myrabbit
-    restart: always
-    volumes:
-    - ./Models/MENAEQ/:/home/worker/model
-    - filestore-OasisData:/shared-fs:rw
-    - ./data/output:/home/worker/output
-  worker-monitor:
-    command:
-    - wait-for-server
-    - server:8000
-    - celery
-    - -A
-    - src.server.oasisapi
-    - worker
-    - --loglevel=INFO
-    environment:
-    - OASIS_DEBUG=1
-    - OASIS_RABBIT_HOST=rabbit
-    - OASIS_RABBIT_PORT=5672
-    - OASIS_RABBIT_USER=rabbit
-    - OASIS_RABBIT_PASS=rabbit
-    - OASIS_SERVER_DB_HOST=server-db
-    - OASIS_SERVER_DB_PASS=oasis
-    - OASIS_SERVER_DB_USER=oasis
-    - OASIS_SERVER_DB_NAME=oasis
-    - OASIS_SERVER_DB_PORT=5432
-    - OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2
-    - OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2
-    - OASIS_CELERY_DB_HOST=celery-db
-    - OASIS_CELERY_DB_PASS=password
-    - OASIS_CELERY_DB_USER=celery
-    - OASIS_CELERY_DB_NAME=celery
-    - OASIS_CELERY_DB_PORT=5432
-    image: coreoasis/api_server:2.3.5
-    links:
-    - server-db
-    - celery-db
-    - rabbit
-    restart: always
-    volumes:
-    - filestore-OasisData:/shared-fs:rw
 version: '3.4'
 volumes:
-  caddy_config: null
-  caddy_data:
-    external: true
   celery-db-OasisData: null
   filestore-OasisData: null
   server-db-OasisData: null
+x-oasis-env-v1:
+  OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+  OASIS_CELERY_DB_HOST: celery-db
+  OASIS_CELERY_DB_NAME: celery
+  OASIS_CELERY_DB_PASS: password
+  OASIS_CELERY_DB_PORT: 5432
+  OASIS_CELERY_DB_USER: celery
+  OASIS_DEBUG: ${DEBUG:-0}
+  OASIS_RABBIT_HOST: broker
+  OASIS_RABBIT_PASS: rabbit
+  OASIS_RABBIT_PORT: 5672
+  OASIS_RABBIT_USER: rabbit
+x-shared-env:
+  OASIS_CELERY_BROKER_URL: amqp://rabbit:rabbit@broker:5672
+  OASIS_CELERY_DB_ENGINE: db+postgresql+psycopg2
+  OASIS_CELERY_DB_HOST: celery-db
+  OASIS_CELERY_DB_NAME: celery
+  OASIS_CELERY_DB_PASS: password
+  OASIS_CELERY_DB_PORT: 5432
+  OASIS_CELERY_DB_USER: celery
+  OASIS_DEBUG: 0
+  OASIS_KEEP_LOCAL_DATA: 0
+  OASIS_KEEP_REMOTE_DATA: 0
+  OASIS_KEEP_RUN_DIR: 0
+  OASIS_SERVER_CHANNEL_LAYER_HOST: channel-layer
+  OASIS_SERVER_DB_ENGINE: django.db.backends.postgresql_psycopg2
+  OASIS_SERVER_DB_HOST: server-db
+  OASIS_SERVER_DB_NAME: oasis
+  OASIS_SERVER_DB_PASS: oasis
+  OASIS_SERVER_DB_PORT: 5432
+  OASIS_SERVER_DB_USER: oasis
+  OASIS_TASK_CONTROLLER_QUEUE: task-controller
+  OASIS_URL_SUB_PATH: 1
+x-volumes: *id001

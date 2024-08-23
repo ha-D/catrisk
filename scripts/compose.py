@@ -7,7 +7,7 @@ from os import path
 import yaml
 
 
-def get_model_services(config):
+def get_model_services(config, shared_envs):
     skip = []
     services = {}
 
@@ -41,28 +41,15 @@ def get_model_services(config):
                     "context": ".",
                     "dockerfile_inline": f"""FROM {config['worker_img']}:{config['worker_version']}{root_hack}\nRUN pip3 install msoffcrypto-tool openpyxl""",
                 },
-                "links": ["celery-db", "rabbit:myrabbit"],
-                "environment": [
-                    "OASIS_KEEP_RUN_DIR=0",
-                    "OASIS_KEEP_LOCAL_DATA=0",
-                    "OASIS_KEEP_REMOTE_DATA=0",
-                    "OASIS_URL_SUB_PATH=1",
-                    'OASIS_CELERY_BROKER_URL="amqp://rabbit:rabbit@rabbit:5672',
-                    "OASIS_SERVER_CHANNEL_LAYER_HOST=channel-layer",
-                    "OASIS_TASK_CONTROLLER_QUEUE=task-controller",
-                    f"OASIS_MODEL_SUPPLIER_ID={metadata.get('supplier_id', 'CatRisk')}",
-                    f"OASIS_MODEL_ID={metadata.get('model_id', model)}",
-                    f"OASIS_MODEL_VERSION_ID={metadata.get('version_id', '0.0.1')}",
-                    "OASIS_SERVER_DB_ENGINE=django.db.backends.postgresql_psycopg2",
-                    "OASIS_CELERY_DB_ENGINE=db+postgresql+psycopg2",
-                    "OASIS_CELERY_DB_HOST=celery-db",
-                    "OASIS_CELERY_DB_PASS=password",
-                    "OASIS_CELERY_DB_USER=celery",
-                    "OASIS_CELERY_DB_NAME=celery",
-                    "OASIS_CELERY_DB_PORT=5432",
-                    "OASIS_MODEL_DATA_DIRECTORY=/home/worker/model",
-                    f"OASIS_RUN_MODE={v}",
-                ],
+                "links": ["celery-db", "broker:mybroker"],
+                "environment": {
+                    **shared_envs,
+                    "OASIS_MODEL_SUPPLIER_ID": metadata.get('supplier_id', 'CatRisk'),
+                    "OASIS_MODEL_ID": metadata.get('model_id', model),
+                    "OASIS_MODEL_VERSION_ID": metadata.get('version_id', '0.0.1'),
+                    "OASIS_RUN_MODE": v, 
+                    "OASIS_MODEL_DATA_DIRECTORY": "/home/worker/model",
+                },
                 "volumes": [
                     f"./{model_dir}/{model}/:/home/worker/model",
                     "filestore-OasisData:/shared-fs:rw",
@@ -101,8 +88,11 @@ def replace_vars(template, config):
 def compose(config):
     docker_dir = config["docker_dir"]
 
+    with open(os.path.join(docker_dir, "oasis-platform.yml")) as f:
+        shared_envs = yaml.safe_load(f)["x-shared-env"]
+
     merged_compose = {}
-    services = get_model_services(config)
+    services = get_model_services(config, shared_envs)
 
     for filename in os.listdir(docker_dir):
         if not filename.endswith(".yml"):
