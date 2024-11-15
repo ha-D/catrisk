@@ -39,7 +39,7 @@ def get_model_services(config, shared_envs):
                 "restart": "always",
                 "build": {
                     "context": ".",
-                    "dockerfile_inline": f"""FROM {config['worker_img']}:{config['worker_version']}{root_hack}\nRUN pip3 install msoffcrypto-tool openpyxl""",
+                    "dockerfile_inline": f"""FROM {config['worker_img']}:{config['worker_version']}{root_hack}\nRUN pip3 install --break-system-packages msoffcrypto-tool openpyxl""",
                 },
                 "links": ["celery-db", "broker:mybroker"],
                 "environment": {
