@@ -43,7 +43,7 @@ x-volumes: &shared-volumes
 services:
   server:
    restart: always
-   image: coreoasis/api_server:2.3.5
+   image: coreoasis/api_server:$api_version
    command: ["./wsgi/run-wsgi.sh"]
    ports:
      - 51970:51970
@@ -60,7 +60,7 @@ services:
      - filestore-OasisData:/shared-fs:rw
   server_websocket:
    restart: always
-   image: coreoasis/api_server:2.3.5
+   image: coreoasis/api_server:$api_version
    command: ["./asgi/run-asgi.sh"]
    links:
      - server-db
@@ -74,7 +74,7 @@ services:
      - filestore-OasisData:/shared-fs:rw
   v1-worker-monitor:
    restart: always
-   image: coreoasis/api_server:2.3.5
+   image: coreoasis/api_server:$api_version
    command: [celery, -A, 'src.server.oasisapi.celery_app_v1', worker, --loglevel=INFO,]
    links:
      - server-db
@@ -86,7 +86,7 @@ services:
      - filestore-OasisData:/shared-fs:rw
   v2-worker-monitor:
    restart: always
-   image: coreoasis/api_server:2.3.5
+   image: coreoasis/api_server:$api_version
    command: [celery, -A, 'src.server.oasisapi.celery_app_v2', worker, --loglevel=INFO,  -Q, celery-v2]
    links:
      - server-db
@@ -98,7 +98,7 @@ services:
      - filestore-OasisData:/shared-fs:rw
   v2-task-controller:
    restart: always
-   image: coreoasis/api_server:2.3.5
+   image: coreoasis/api_server:$api_version
    command: [celery, -A, 'src.server.oasisapi.celery_app_v2', worker, --loglevel=INFO, -Q, task-controller]
    links:
      - server-db
@@ -110,7 +110,7 @@ services:
      - filestore-OasisData:/shared-fs:rw
   celery-beat_v2:
    restart: always
-   image: coreoasis/api_server:2.3.5
+   image: coreoasis/api_server:$api_version
    command: [celery, -A, src.server.oasisapi.celery_app_v2, beat, --loglevel=INFO]
    links:
      - server-db
@@ -157,7 +157,7 @@ services:
       - 6379:6379
   user-interface:
     restart: always
-    image: coreoasis/oasisui_app:${VERS_UI:-latest}
+    image: coreoasis/oasisui_app:$ui_version
     container_name: oasisui_app
     environment:
      - API_IP=server:8000/api/
